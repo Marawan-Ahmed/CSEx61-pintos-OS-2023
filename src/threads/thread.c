@@ -65,7 +65,7 @@ bool priority_order_func (const struct list_elem *a, const struct list_elem *b, 
   struct thread *thread2 = list_entry(b, struct thread, elem);
   struct thread *thread1 = list_entry(a, struct thread, elem); 
 
-  if ((thread1->priority) >= (thread2->priority)) return true;
+  if ((thread1->priority) > (thread2->priority)) return true;
   else return false;
 }
 /*******************/
