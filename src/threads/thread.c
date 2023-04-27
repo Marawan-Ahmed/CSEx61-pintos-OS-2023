@@ -68,6 +68,17 @@ bool priority_order_func (const struct list_elem *a, const struct list_elem *b, 
   if ((thread1->priority) > (thread2->priority)) return true;
   else return false;
 }
+/* Let the thread [target] be donated the priority. */
+void thread_priority_donate(struct thread *t, int new_priority)
+{
+  // donation : change only current priority
+  t->priority = new_priority;
+  t->is_donated = true;
+
+  list_sort(&ready_list, &priority_order_func, NULL);
+  thread_yield();
+}
+
 /*******************/
 
 
@@ -499,7 +510,10 @@ init_thread (struct thread *t, const char *name, int priority)
 /************************/
   t->priority = priority;
   t->original_priority = priority;
+  t->blocked_on = NULL;
   t->is_donated = false;
+
+  list_init (&(t->acquired_locks));
 /****************************/
   old_level = intr_disable ();
   // list_push_back (&all_list, &t->allelem);
