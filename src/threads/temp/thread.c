@@ -61,13 +61,11 @@ bool thread_mlfqs;
 
 /******************************/
 bool priority_order_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
-  ASSERT (a != NULL);
-  ASSERT (b != NULL);
 
   struct thread *thread2 = list_entry(b, struct thread, elem);
   struct thread *thread1 = list_entry(a, struct thread, elem); 
 
-  if ((thread1->priority) > (thread2->priority)) return true;
+  if ((thread1->priority) >= (thread2->priority)) return true;
   else return false;
 }
 /*******************/
@@ -266,7 +264,7 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
   // list_push_back (&ready_list, &t->elem);
 /***********************************/
-  list_insert_ordered (&ready_list, &t->elem, priority_order_func, NULL);
+  list_insert_ordered (&ready_list, &t->elem, &priority_order_func, NULL);
 /******************************************/
   t->status = THREAD_READY;
   intr_set_level (old_level);
@@ -340,7 +338,7 @@ thread_yield (void)
   if (cur != idle_thread) 
     // list_push_back (&ready_list, &cur->elem);
 /***********************************/
-  list_insert_ordered (&ready_list, &cur->elem, priority_order_func, NULL);
+  list_insert_ordered (&ready_list, &cur->elem, &priority_order_func, NULL);
 /******************************************/
   cur->status = THREAD_READY;
   schedule ();
@@ -369,7 +367,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
-  list_sort(&ready_list, priority_order_func, NULL);
+  list_sort(&ready_list, &priority_order_func, NULL);
   thread_yield();
 }
 
@@ -506,7 +504,7 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   // list_push_back (&all_list, &t->allelem);
 /*********************************************/
-  list_insert_ordered (&all_list, &t->allelem, priority_order_func, NULL);
+  list_insert_ordered (&all_list, &t->allelem, &priority_order_func, NULL);
   /**********************************/
   intr_set_level (old_level);
 
