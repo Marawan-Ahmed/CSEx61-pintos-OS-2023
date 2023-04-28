@@ -529,6 +529,7 @@ init_thread (struct thread *t, const char *name, int priority)
 /************************/
   t->priority = priority;
   t->original_priority = priority;
+  list_init(&t->acquired_locks);
   // t->is_donated = false;
 /****************************/
   old_level = intr_disable ();

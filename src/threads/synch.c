@@ -34,6 +34,17 @@
 #include "lib/kernel/list.h"
 
 
+void lock_priority_order_func(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+  ASSERT (a != NULL);
+  ASSERT (b != NULL);
+
+  struct lock *lock2 = list_entry(b, struct lock, elem);
+  struct lock *lock1 = list_entry(a, struct lock, elem); 
+
+  if ((lock1->priority) >= (lock2->priority)) return true;
+  else return false;
+}
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -226,8 +237,15 @@ lock_acquire (struct lock *lock)
 
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+  
   thread_current()->blocked_on = NULL;
-  // thread_yield();
+
+
+  // list_insert(&(thread_current_ptr->acquired_locks), &(lock->elem));
+  // list_insert_ordered (&ready_list, &t->elem, priority_order_func, NULL);
+
+  // list_insert_ordered (&(thread_current()->acquired_locks), &lock->elem, lock_priority_order_func, NULL);
+
 }
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
