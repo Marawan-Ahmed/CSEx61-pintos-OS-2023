@@ -70,6 +70,20 @@ bool priority_order_func (const struct list_elem *a, const struct list_elem *b, 
   if ((thread1->priority) > (thread2->priority)) return true;
   else return false;
 }
+
+void thread_priority_donate (struct thread *t, int new_priority){
+  enum intr_level old_level;
+  old_level = intr_disable();
+
+  ASSERT (new_priority >= PRI_MIN && new_priority <= PRI_MAX);
+  // ASSERT (is_thread (t));
+  t->priority = new_priority;
+
+  // thread_yield();  
+  list_sort(&ready_list, priority_order_func, NULL);
+
+  intr_set_level (old_level);
+}
 /*******************/
 
 
@@ -337,11 +351,12 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
+  if (cur != idle_thread) {
     // list_push_back (&ready_list, &cur->elem);
 /***********************************/
   list_insert_ordered (&ready_list, &cur->elem, priority_order_func, NULL);
 /******************************************/
+}
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -368,7 +383,20 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  printf("here");
+  if ((thread_current()->priority) != (thread_current()->original_priority)){
+    if (new_priority > (thread_current()->priority)){
+      thread_current()->priority = new_priority;
+      thread_current()->original_priority = new_priority;
+    }
+    else{
+      thread_current()->original_priority = new_priority;
+    }
+  }
+  else{
+    thread_current()->priority = new_priority;
+    thread_current()->original_priority = new_priority;
+  }
   list_sort(&ready_list, priority_order_func, NULL);
   thread_yield();
 }
@@ -377,7 +405,7 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  return thread_current()->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -501,7 +529,7 @@ init_thread (struct thread *t, const char *name, int priority)
 /************************/
   t->priority = priority;
   t->original_priority = priority;
-  t->is_donated = false;
+  // t->is_donated = false;
 /****************************/
   old_level = intr_disable ();
   // list_push_back (&all_list, &t->allelem);
