@@ -5,6 +5,8 @@
 #include <list.h>
 #include <stdint.h>
 
+#include "synch.h"
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -94,6 +96,8 @@ struct thread
    int priority;                       /* Priority. (can be donated)*/
    int original_priority;                       /* Priority. without donation*/
    bool is_donated;
+   struct list acquired_locks;                  /* List of locks acquired by a thread */
+   struct lock * blocked_on;
    /*******************************/
     struct list_elem allelem;           /* List element for all threads list. */
 
@@ -146,7 +150,7 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 // /**********************/
 bool priority_order_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
-
+void thread_priority_donate (struct thread *t, int new_priority);
 // /******************************/
 
 

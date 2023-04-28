@@ -61,6 +61,8 @@ bool thread_mlfqs;
 
 /******************************/
 bool priority_order_func (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+  ASSERT (a != NULL);
+  ASSERT (b != NULL);
 
   struct thread *thread2 = list_entry(b, struct thread, elem);
   struct thread *thread1 = list_entry(a, struct thread, elem); 
@@ -73,13 +75,13 @@ void thread_priority_donate (struct thread *t, int new_priority){
   enum intr_level old_level;
   old_level = intr_disable();
 
-  // ASSERT (new_priority >= PRI_MIN && new_priority <= PRI_MAX);
+  ASSERT (new_priority >= PRI_MIN && new_priority <= PRI_MAX);
   // ASSERT (is_thread (t));
+  t->priority = new_priority;
+  t->is_donated = true;
+  // thread_yield();  
+  list_sort(&ready_list, priority_order_func, NULL);
 
-	t->priority = new_priority;
-  // list_sort(&ready_list, priority_order_func, NULL);
-
-  // thread_yield();
   intr_set_level (old_level);
 }
 /*******************/
@@ -328,6 +330,12 @@ thread_exit (void)
   process_exit ();
 #endif
 
+ // release all locks
+  struct list_elem *e;
+  for (e = list_begin (&thread_current()->acquired_locks); e != list_end (&thread_current()->acquired_locks); e = list_next (e)) {
+    struct lock *lock = list_entry(e, struct lock, elem);
+    lock_release(lock);
+  }
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
@@ -349,11 +357,12 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
+  if (cur != idle_thread) {
     // list_push_back (&ready_list, &cur->elem);
 /***********************************/
   list_insert_ordered (&ready_list, &cur->elem, priority_order_func, NULL);
 /******************************************/
+}
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -380,7 +389,21 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  // struct thread *thread_current_ptr = thread_current(); 
+  // if (thread_current_ptr->is_donated){
+
+  //   if (new_priority > (thread_current_ptr->priority)){
+  //     thread_current()->priority = new_priority;
+  //     thread_current()->original_priority = new_priority;
+  //   }
+  //   else{
+  //     thread_current()->original_priority = new_priority;
+  //   }
+  // }
+  // else{
+    thread_current()->priority = new_priority;
+    thread_current()->original_priority = new_priority;
+  // }
   list_sort(&ready_list, priority_order_func, NULL);
   thread_yield();
 }
@@ -389,7 +412,7 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  return thread_current()->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -509,12 +532,14 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   // t->priority = priority;
-  t->magic = THREAD_MAGIC;
 /************************/
   t->priority = priority;
   t->original_priority = priority;
   t->is_donated = false;
+  list_init(&t->acquired_locks);
 /****************************/
+  t->magic = THREAD_MAGIC;
+
   old_level = intr_disable ();
   // list_push_back (&all_list, &t->allelem);
 /*********************************************/
