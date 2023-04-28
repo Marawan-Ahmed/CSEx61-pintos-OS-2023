@@ -26,7 +26,7 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
-
+#define Deci_b 1<<14
 
 /* A kernel thread or user process.
 
@@ -84,6 +84,10 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+typedef struct{
+      int value;
+}real;
+
 struct thread
   {
     /* Owned by thread.c. */
@@ -98,6 +102,11 @@ struct thread
    // bool is_donated;
    struct list acquired_locks;                  /* List of locks acquired by a thread */
    struct lock * blocked_on;
+
+   /*******************************/         /*Parameters added for advanced scheduler*/
+   int nice;
+   real recent_cpu;
+   /*******************************/
    /*******************************/
     struct list_elem allelem;           /* List element for all threads list. */
 
@@ -153,6 +162,24 @@ bool priority_order_func (const struct list_elem *a, const struct list_elem *b, 
 void thread_priority_donate (struct thread *t, int new_priority);
 // /******************************/
 
+/************************/          //Load_avg / recent_cpu functions 
+void load_avg_init(void);
+void increment_recent_cpu(struct thread* t);
+void update_recent_cpu(struct thread* t, void *aux);
+void update_recent_cpu_and_priority(struct thread* t, void *aux);
+void update_priority(struct thread* t, void *aux);
+int calc_load_avg();
+void update_all_threads(void);
+/***********************/
+
+/***********************/
+int convert_to_fp(int x);
+int add_fp(int x, int y);
+int multiply_fp(int x, int y);
+int divide_fp(int x, int y);
+int convert_to_int(int x);
+int convert_to_int_round(int x);
+/***********************/
 
 
 #endif /* threads/thread.h */

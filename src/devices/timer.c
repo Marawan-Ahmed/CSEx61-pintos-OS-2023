@@ -235,6 +235,12 @@ timer_interrupt (struct intr_frame *args UNUSED)
     }
     else break;
   }
+  update_recent_cpu(thread_current(),NULL);
+  if(ticks%4 == 0) update_priority(thread_current(),NULL);
+  if (ticks%TIMER_FREQ == 0)
+  {
+    update_all_threads();
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
