@@ -34,14 +34,15 @@
 #include "lib/kernel/list.h"
 
 
-void lock_priority_order_func(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
-  ASSERT (a != NULL);
-  ASSERT (b != NULL);
+bool lock_priority_order_func(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+  // ASSERT (a != NULL);
+  // ASSERT (b != NULL);
 
-  struct lock *lock2 = list_entry(b, struct lock, elem);
   struct lock *lock1 = list_entry(a, struct lock, elem); 
+  struct lock *lock2 = list_entry(b, struct lock, elem);
 
-  if ((lock1->priority) >= (lock2->priority)) return true;
+// printf("          hello             ");
+  if ((lock1->priority) > (lock2->priority)) return true;
   else return false;
 }
 
@@ -200,6 +201,7 @@ lock_init (struct lock *lock)
   ASSERT (lock != NULL);
 
   lock->holder = NULL;
+  lock->priority = PRI_MIN;
   sema_init (&lock->semaphore, 1);
 }
 
@@ -214,6 +216,9 @@ lock_init (struct lock *lock)
 void
 lock_acquire (struct lock *lock)
 {
+  enum intr_level old_level;
+  old_level = intr_disable();
+
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
@@ -227,7 +232,7 @@ lock_acquire (struct lock *lock)
 
 /*******/
   while (thread_lock_holder_index != NULL && (thread_lock_holder_index->priority < thread_current()->priority)) {
-   
+    lock_index->priority = thread_current_ptr->priority;
     thread_priority_donate(thread_lock_holder_index, thread_current_ptr->priority);
 
     lock_index = thread_lock_holder_index->blocked_on;
@@ -239,14 +244,32 @@ lock_acquire (struct lock *lock)
   lock->holder = thread_current ();
   
   thread_current()->blocked_on = NULL;
-
+  lock->priority = thread_current()->priority;
 
   // list_insert(&(thread_current_ptr->acquired_locks), &(lock->elem));
   // list_insert_ordered (&ready_list, &t->elem, priority_order_func, NULL);
 
-  // list_insert_ordered (&(thread_current()->acquired_locks), &lock->elem, lock_priority_order_func, NULL);
+  list_insert_ordered (&(thread_current()->acquired_locks), &lock->elem, lock_priority_order_func, NULL);
+
+//   for (struct list_elem *iter = list_begin(&thread_current()->acquired_locks); iter != list_end(&thread_current()->acquired_locks); iter = list_next(iter)){
+//     struct lock *element = list_entry(iter, struct lock, elem);
+
+// printf("%d\n", element->priority);
+    // if(element->sleep_end <= ticks){
+    //   thread_unblock(element->thread_ptr);
+    //   list_remove (iter);
+    // }
+    // else break;
+  // }
+  // if (lock->priority > thread_current ()->priority)
+  // {
+  //   thread_current ()->priority = lock->priority;
+  //   thread_yield ();
+  // }
+    intr_set_level (old_level);
 
 }
+
 /* Tries to acquires LOCK and returns true if successful or false
    on failure.  The lock must not already be held by the current
    thread.
@@ -275,13 +298,31 @@ lock_try_acquire (struct lock *lock)
 void
 lock_release (struct lock *lock) 
 {
+  // enum intr_level old_level;
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
+  // old_level = intr_disable ();
 
-  lock->holder = NULL;    
-  thread_priority_donate(thread_current(), thread_current()->original_priority);
+  list_remove (&(lock->elem));
 
+  // thread_priority_donate(thread_current(), thread_current()->original_priority);
+  int max_priority = thread_current()->original_priority;
+  int lock_priority;
+
+  if (!list_empty (&(thread_current()->acquired_locks)))
+  {
+    list_sort (&(thread_current()->acquired_locks), lock_priority_order_func, NULL);
+    lock_priority = list_entry (list_front (&thread_current()->acquired_locks), struct lock, elem)->priority;
+    if (lock_priority > max_priority)
+      max_priority = lock_priority;
+  }
+
+  thread_current()->priority = max_priority;
+  lock->holder = NULL; 
+    // thread_priority_donate(thread_current(), thread_current()->original_priority); 
   sema_up (&lock->semaphore);
+  // intr_set_level (old_level);
+
 }
 
 /* Returns true if the current thread holds LOCK, false
