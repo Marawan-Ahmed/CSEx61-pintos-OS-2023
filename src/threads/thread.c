@@ -20,6 +20,7 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
+real load_avg;
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
@@ -210,6 +211,31 @@ thread_create (const char *name, int priority,
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
     return TID_ERROR;
+
+  /************************************/
+  // if (thread_mlfqs)
+  // {
+  //   printf("thread_mlfqs is true \n");
+  //   if (thread_current() != NULL && thread_current() != idle_thread && thread_current() != initial_thread)
+  //   {
+  //     printf("nice value will be copied to child thread\n");
+  //     t->nice = thread_current()->nice;
+  //     t->recent_cpu.value = thread_current()->recent_cpu.value;
+  //     update_priority(t, NULL);
+  //   }
+  //   else if (thread_current() == initial_thread && !strcmp(name, "idle"))
+  //   {
+  //     printf("creating idle thread\n");
+  //     t->priority = 0;
+  //   }
+  //   else if (thread_current() == idle_thread)
+  //     printf("Idle thread case \n");
+  //   else
+  //     printf("NULL thread case \n");
+  // }
+  // else
+  //   printf("thread_mlfqs is false \n");
+  /************************************/
 
   /* Initialize thread. */
   init_thread (t, name, priority);
@@ -408,36 +434,39 @@ thread_get_priority (void)
   return thread_current()->priority;
 }
 
-/* Sets the current thread's nice value to NICE. */
-void
-thread_set_nice (int nice UNUSED) 
+void thread_set_nice(int nice UNUSED)
 {
-  /* Not yet implemented. */
+  thread_current()->nice = nice;
+  struct thread *t = thread_current();
+  update_priority(t, NULL);
+  // if (!list_empty(&ready_list))
+  // {
+  //   struct thread *e = list_entry(list_front(&ready_list), struct thread, elem);
+  //   if (t->priority < e->priority)
+  //   {
+  //     thread_yield();
+  //   }
+  // }
 }
 
 /* Returns the current thread's nice value. */
-int
-thread_get_nice (void) 
+int thread_get_nice(void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
-int
-thread_get_load_avg (void) 
+int thread_get_load_avg(void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return convert_to_int_round(load_avg.value * 100);
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
-int
-thread_get_recent_cpu (void) 
+int thread_get_recent_cpu(void)
 {
-  /* Not yet implemented. */
-  return 0;
+  return convert_to_int_round(thread_current()->recent_cpu.value * 100);
 }
+
 
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -654,3 +683,100 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+void load_avg_init(void)
+{
+  load_avg.value = convert_to_fp(0);
+}
+
+void increment_recent_cpu(struct thread *t)
+{
+  if (t != idle_thread)
+    t->recent_cpu.value = t->recent_cpu.value + convert_to_fp(1);
+}
+
+void update_recent_cpu(struct thread *t, void *aux)
+{
+  t->recent_cpu.value = multiply_fp(divide_fp(2 * load_avg.value, 2 * load_avg.value + convert_to_fp(1)), t->recent_cpu.value) + convert_to_fp(t->nice);
+}
+
+void update_recent_cpu_and_priority(struct thread *t, void *aux)
+{
+  update_recent_cpu(t, aux);
+  t->priority = PRI_MAX - convert_to_int_round(t->recent_cpu.value / 4) - (t->nice / 2);
+}
+
+void update_priority(struct thread *t, void *aux)
+{
+  t->priority = PRI_MAX - convert_to_int_round(divide_fp(t->recent_cpu.value, convert_to_fp(4))) - (t->nice / 2);
+  if (t->priority > PRI_MAX)
+    t->priority = PRI_MAX;
+  else if (t->priority < PRI_MIN)
+    t->priority = PRI_MIN;
+}
+
+void update_load_avg()
+{
+  // load_avg.value = multiply_fp(divide_fp(convert_to_fp(59),convert_to_fp(60)),load_avg.value)
+  // + divide_fp(convert_to_fp(1),convert_to_fp(60))*(thread_current() == idle_thread ? list_size(&ready_list) : list_size(&ready_list)+1);
+  
+  load_avg.value = multiply_fp(divide_fp(convert_to_fp(59),convert_to_fp(60)),load_avg.value)
+  +  multiply_fp(divide_fp(convert_to_fp(1),convert_to_fp(60)),(convert_to_fp(thread_current() == idle_thread ? list_size(&ready_list) : list_size(&ready_list)+1)));
+  
+  // load_avg.value = multiply_fp(divide_fp(convert_to_fp(59), convert_to_fp(60)), load_avg.value) 
+  // + multiply_fp(divide_fp(convert_to_fp(1), convert_to_fp(60)), convert_to_fp(list_size(&ready_list) + 1));
+#if DEBUG
+  printf("LoadAvg = %d, listSize = %d\n", load_avg.value, list_size(&ready_list));
+#endif
+}
+
+void update_all_threads_recent_cpu_and_priority(void)
+{
+  struct list_elem *iterat = list_begin(&ready_list);
+  while (iterat != list_end(&ready_list))
+  {
+    update_recent_cpu_and_priority(iterat, NULL);
+    iterat = list_next(iterat);
+  }
+  update_load_avg();
+}
+
+void update_all_threads_priority(void)
+{
+  struct list_elem *iterat = list_begin(&ready_list);
+  while (iterat != list_end(&ready_list))
+  {
+    update_priority(iterat, NULL);
+    iterat = list_next(iterat);
+  }
+}
+
+/***************************************/
+/* Floating point functions */
+
+int convert_to_fp(int x)
+{
+  return ((x) * (Deci_b));
+}
+
+int multiply_fp(int x, int y)
+{
+  return ((int64_t)(x)) * (y) / (Deci_b);
+}
+
+int divide_fp(int x, int y)
+{
+  return ((int64_t)(x)) * (Deci_b) / (y);
+}
+
+int convert_to_int_round(int x)
+{
+  if (x >= 0)
+  {
+    return (x + ((Deci_b) / 2)) / (Deci_b);
+  }
+  else
+  {
+    return (x - ((Deci_b) / 2)) / (Deci_b);
+  }
+}
