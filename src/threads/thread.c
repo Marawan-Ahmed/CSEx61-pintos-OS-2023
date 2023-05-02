@@ -172,10 +172,10 @@ thread_tick (void)
     increment_recent_cpu(t);
 
     if ((kernel_ticks+idle_ticks)%100 == 0){
-      // update_all_threads_recent_cpu_and_priority();
+      update_all_threads_recent_cpu_and_priority();
       update_load_avg();
       // update_recent_cpu(t,NULL);
-      update_all_threads_recent_cpu();
+      // update_all_threads_recent_cpu();
     }
       if((kernel_ticks+idle_ticks)%4 == 0) {
       update_priority(t,NULL);
