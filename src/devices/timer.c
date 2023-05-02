@@ -6,9 +6,10 @@
 #include "devices/pit.h"
 #include "threads/interrupt.h"
 #include "threads/synch.h"
-#include "threads/thread.h"
 #include "threads/malloc.h"
 #include "lib/kernel/list.h"
+
+#include "threads/thread.h"
 
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -210,7 +211,7 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
 /* Timer interrupt handler. */
   int i = 0;
 
@@ -235,6 +236,22 @@ timer_interrupt (struct intr_frame *args UNUSED)
     }
     else break;
   }
+
+  if(thread_mlfqs){
+    struct thread *t = thread_current ();
+    increment_recent_cpu(t);
+
+    if ((timer_ticks()) %TIMER_FREQ == 0){
+      // update_all_threads_recent_cpu_and_priority();
+      update_load_avg();
+      // update_recent_cpu(t,NULL);
+      update_all_threads_recent_cpu();
+    }
+    if ((timer_ticks()) %4 == 0){
+      update_priority(t,NULL);
+    }
+  }
+
 
 }
 

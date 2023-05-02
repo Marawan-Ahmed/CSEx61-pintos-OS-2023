@@ -167,21 +167,7 @@ thread_tick (void)
   else
     kernel_ticks++;
 
-  
-  if(thread_mlfqs){
-    increment_recent_cpu(t);
-
-    if ((kernel_ticks+idle_ticks)%100 == 0){
-      update_all_threads_recent_cpu_and_priority();
-      update_load_avg();
-      // update_recent_cpu(t,NULL);
-      // update_all_threads_recent_cpu();
-    }
-      if((kernel_ticks+idle_ticks)%4 == 0) {
-      update_priority(t,NULL);
-    }
-  }
-  /* Enforce preemption. */
+    /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
 }
@@ -237,8 +223,10 @@ thread_create (const char *name, int priority,
       #if DEBUG
         printf("nice value will be copied to child thread\n");
       #endif
-      t->nice = thread_current()->nice;
-      t->recent_cpu.value = thread_current()->recent_cpu.value;
+      // t->nice = thread_current()->nice;
+      t->nice = 0; //thread_current()->nice;
+      // t->recent_cpu.value = thread_current()->recent_cpu.value;
+      t->recent_cpu.value = convert_to_fp(0);
       update_priority(t, NULL);
     }
     else if (thread_current() == initial_thread && !strcmp(name, "idle"))
@@ -247,8 +235,8 @@ thread_create (const char *name, int priority,
         printf("creating idle thread\n");
       #endif
       t->priority = 0;
-      t->recent_cpu.value = 0;
-      t->nice = 20;
+      t->recent_cpu.value = convert_to_fp(0);
+      t->nice = 0;
     }
     #if DEBUG
     else if (thread_current() == idle_thread)
@@ -434,26 +422,28 @@ void
 thread_set_priority (int new_priority) 
 {
   // printf("here");
-  if ((thread_current()->priority) != (thread_current()->original_priority)){
-    if (new_priority > (thread_current()->priority)){
+  if(!thread_mlfqs){
+    if ((thread_current()->priority) != (thread_current()->original_priority)){
+      if (new_priority > (thread_current()->priority)){
+        thread_current()->priority = new_priority;
+        thread_current()->original_priority = new_priority;
+      }
+      else{
+        thread_current()->original_priority = new_priority;
+      }
+    }
+    else{
       thread_current()->priority = new_priority;
       thread_current()->original_priority = new_priority;
     }
-    else{
-      thread_current()->original_priority = new_priority;
+    list_sort(&ready_list, priority_order_func, NULL);
+    
+    if(!list_empty(&ready_list)){
+      struct list_elem *front = list_front(&ready_list);
+      struct thread *fthread = list_entry(front, struct thread, elem);
+      if(fthread->priority > thread_current()->priority)
+        thread_yield();
     }
-  }
-  else{
-    thread_current()->priority = new_priority;
-    thread_current()->original_priority = new_priority;
-  }
-  list_sort(&ready_list, priority_order_func, NULL);
-   
-  if(!list_empty(&ready_list)){
-    struct list_elem *front = list_front(&ready_list);
-    struct thread *fthread = list_entry(front, struct thread, elem);
-    if(fthread->priority > thread_current()->priority)
-      thread_yield();
   }
 }
 
@@ -469,6 +459,7 @@ void thread_set_nice(int nice UNUSED)
   thread_current()->nice = nice;
   struct thread *t = thread_current();
   update_priority(t, NULL);
+  // thread_yield(); //testing
   // if (!list_empty(&ready_list))
   // {
   //   struct thread *e = list_entry(list_front(&ready_list), struct thread, elem);
@@ -488,16 +479,22 @@ int thread_get_nice(void)
 /* Returns 100 times the system load average. */
 int thread_get_load_avg(void)
 {
-  return convert_to_int_round(load_avg.value * 100);
+  // return convert_to_int_round(load_avg.value * 100); //testing
+  // return load_avg.value * 100;
+  return convert_to_int_round(multiply_fp(load_avg.value, convert_to_fp(100)));
+  // return convert_to_int_round_to_lowest(multiply_fp(load_avg.value, convert_to_fp(100)));
+
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int thread_get_recent_cpu(void)
 {
-  return convert_to_int_round(thread_current()->recent_cpu.value * 100);
+  // return convert_to_int_round(thread_current()->recent_cpu.value * 100);//testing
+  // return thread_current()->recent_cpu.value * 100;
+  return convert_to_int_round(multiply_fp(thread_current()->recent_cpu.value, convert_to_fp(100)));
+  // return convert_to_int_round_to_lowest(multiply_fp(thread_current()->recent_cpu.value, convert_to_fp(100)));
 }
 
-
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
@@ -546,7 +543,7 @@ kernel_thread (thread_func *function, void *aux)
   function (aux);       /* Execute the thread function. */
   thread_exit ();       /* If function() returns, kill the thread. */
 }
-
+
 /* Returns the running thread. */
 struct thread *
 running_thread (void) 
@@ -709,7 +706,7 @@ allocate_tid (void)
 
   return tid;
 }
-
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
@@ -765,7 +762,7 @@ void update_priority(struct thread *t, void *aux)
     t->priority = PRI_MIN;
 }
 
-void update_load_avg()
+void update_load_avg(void)
 {
   // load_avg.value = multiply_fp(divide_fp(convert_to_fp(59),convert_to_fp(60)),load_avg.value)
   // + divide_fp(convert_to_fp(1),convert_to_fp(60))*(thread_current() == idle_thread ? list_size(&ready_list) : list_size(&ready_list)+1);
@@ -835,4 +832,9 @@ int convert_to_int_round(int x)
   {
     return (x - ((Deci_b) / 2)) / (Deci_b);
   }
+}
+
+int convert_to_int_round_to_lowest(int x)
+{
+return x/Deci_b;
 }

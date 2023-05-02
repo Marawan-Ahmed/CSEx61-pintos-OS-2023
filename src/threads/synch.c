@@ -242,50 +242,34 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  thread_current()->blocked_on = lock;
+  // if (!thread_mlfqs){
+    thread_current()->blocked_on = lock;
 
-  struct thread *thread_lock_holder_index = lock->holder; 
-  struct lock *lock_index = lock;
-  struct thread *thread_current_ptr = thread_current(); 
+    struct thread *thread_lock_holder_index = lock->holder; 
+    struct lock *lock_index = lock;
+    struct thread *thread_current_ptr = thread_current(); 
 
 
-/*******/
-  while (thread_lock_holder_index != NULL && (thread_lock_holder_index->priority < thread_current()->priority)) {
-    lock_index->priority = thread_current_ptr->priority;
-    thread_priority_donate(thread_lock_holder_index, thread_current_ptr->priority);
+  /*******/
+  if(!thread_mlfqs){
+    while (thread_lock_holder_index != NULL && (thread_lock_holder_index->priority < thread_current()->priority)) {
+      lock_index->priority = thread_current_ptr->priority;
+      thread_priority_donate(thread_lock_holder_index, thread_current_ptr->priority);
 
-    lock_index = thread_lock_holder_index->blocked_on;
-    if(lock_index == NULL) break;
-    thread_lock_holder_index = lock_index->holder;
+      lock_index = thread_lock_holder_index->blocked_on;
+      if(lock_index == NULL) break;
+      thread_lock_holder_index = lock_index->holder;
+    }
   }
-
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
   
-  thread_current()->blocked_on = NULL;
-  lock->priority = thread_current()->priority;
-
-  // list_insert(&(thread_current_ptr->acquired_locks), &(lock->elem));
-  // list_insert_ordered (&ready_list, &t->elem, priority_order_func, NULL);
-
-  list_insert_ordered (&(thread_current()->acquired_locks), &lock->elem, lock_priority_order_func, NULL);
-
-//   for (struct list_elem *iter = list_begin(&thread_current()->acquired_locks); iter != list_end(&thread_current()->acquired_locks); iter = list_next(iter)){
-//     struct lock *element = list_entry(iter, struct lock, elem);
-
-// printf("%d\n", element->priority);
-    // if(element->sleep_end <= ticks){
-    //   thread_unblock(element->thread_ptr);
-    //   list_remove (iter);
-    // }
-    // else break;
-  // }
-  // if (lock->priority > thread_current ()->priority)
-  // {
-  //   thread_current ()->priority = lock->priority;
-  //   thread_yield ();
-  // }
-    intr_set_level (old_level);
+    thread_current()->blocked_on = NULL;
+  if (!thread_mlfqs){
+    lock->priority = thread_current()->priority;
+    list_insert_ordered (&(thread_current()->acquired_locks), &lock->elem, lock_priority_order_func, NULL);
+  }
+  intr_set_level (old_level);
 
 }
 
@@ -321,7 +305,7 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
   // old_level = intr_disable ();
-
+  if (!thread_mlfqs){
   list_remove (&(lock->elem));
 
   // thread_priority_donate(thread_current(), thread_current()->original_priority);
@@ -334,11 +318,11 @@ lock_release (struct lock *lock)
     lock_priority = list_entry (list_front (&thread_current()->acquired_locks), struct lock, elem)->priority;
     if (lock_priority > max_priority)
       max_priority = lock_priority;
-  }
-
+  } 
   thread_current()->priority = max_priority;
-  lock->holder = NULL; 
+  }
     // thread_priority_donate(thread_current(), thread_current()->original_priority); 
+  lock->holder = NULL; 
   sema_up (&lock->semaphore);
   // intr_set_level (old_level);
 

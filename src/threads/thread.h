@@ -171,9 +171,10 @@ void update_recent_cpu_and_priority(struct thread* t, void *aux);
 void update_priority(struct thread* t, void *aux);
 //int calc_load_avg();
 void update_all_threads_recent_cpu_and_priority(void);
+void update_all_threads_recent_cpu(void);
 void update_all_threads_priority(void);
 int thread_get_load_avg(void);
-void update_load_avg();
+void update_load_avg(void);
 int thread_get_recent_cpu(void);
 /***********************/
 
@@ -185,6 +186,6 @@ int multiply_fp(int x, int y);
 int divide_fp(int x, int y);
 //int convert_to_int(int x);
 int convert_to_int_round(int x);
-
+int convert_to_int_round_to_lowest (int x);
 #endif /* threads/thread.h */
 
