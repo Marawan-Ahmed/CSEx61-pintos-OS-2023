@@ -156,7 +156,7 @@ int thread_get_priority (void);
 void thread_set_priority (int);
 
 int thread_get_nice (void);
-void thread_set_nice (int);
+void thread_set_nice (int nice UNUSED);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 // /**********************/
@@ -169,20 +169,21 @@ void increment_recent_cpu(struct thread* t);
 void update_recent_cpu(struct thread* t, void *aux);
 void update_recent_cpu_and_priority(struct thread* t, void *aux);
 void update_priority(struct thread* t, void *aux);
-int calc_load_avg();
+//int calc_load_avg();
 void update_all_threads_recent_cpu_and_priority(void);
 void update_all_threads_priority(void);
 int thread_get_load_avg(void);
 void update_load_avg();
+int thread_get_recent_cpu(void);
 /***********************/
 
 /***********************/
 /* Floating point functions */
 int convert_to_fp(int x);
-int add_fp(int x, int y);
+//int add_fp(int x, int y);
 int multiply_fp(int x, int y);
 int divide_fp(int x, int y);
-int convert_to_int(int x);
+//int convert_to_int(int x);
 int convert_to_int_round(int x);
 
 #endif /* threads/thread.h */
