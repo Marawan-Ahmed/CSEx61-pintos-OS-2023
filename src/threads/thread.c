@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "lib/kernel/list.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -166,7 +167,14 @@ thread_tick (void)
 #endif
   else
     kernel_ticks++;
-
+  /*
+  
+  
+  
+  
+  
+  
+  */
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -204,6 +212,9 @@ thread_create (const char *name, int priority,
   struct switch_entry_frame *ef;
   struct switch_threads_frame *sf;
   tid_t tid;
+  //
+  enum intr_level old_level; 
+  //
 
   ASSERT (function != NULL);
 
@@ -240,7 +251,9 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-
+  //
+  old_level = intr_disable ();
+  //
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -255,7 +268,9 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-
+  //
+  intr_set_level(old_level);
+  //
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -410,6 +425,10 @@ void
 thread_set_priority (int new_priority) 
 {
   // printf("here");
+  /****************************/
+  enum intr_level old_level; 
+  old_level = intr_disable();
+  /***************************/
   if ((thread_current()->priority) != (thread_current()->original_priority)){
     if (new_priority > (thread_current()->priority)){
       thread_current()->priority = new_priority;
@@ -424,7 +443,17 @@ thread_set_priority (int new_priority)
     thread_current()->original_priority = new_priority;
   }
   list_sort(&ready_list, priority_order_func, NULL);
-  thread_yield();
+  //thread_yield();
+  ////////////////////////////////
+  if(!list_empty(&ready_list)){
+    struct list_elem *front = list_front(&ready_list);
+    struct thread *fthread = list_entry(front, struct thread, elem);
+    if(fthread->priority > thread_current()->priority)
+      thread_yield();
+  }
+  ////////////////////////////////
+  intr_set_level(old_level);
+  ////////////////////////////////
 }
 
 /* Returns the current thread's priority. */
@@ -437,8 +466,8 @@ thread_get_priority (void)
 void thread_set_nice(int nice UNUSED)
 {
   thread_current()->nice = nice;
-  struct thread *t = thread_current();
-  update_priority(t, NULL);
+  //struct thread *t = thread_current();
+  //update_priority(t, NULL);
   // if (!list_empty(&ready_list))
   // {
   //   struct thread *e = list_entry(list_front(&ready_list), struct thread, elem);
@@ -464,7 +493,8 @@ int thread_get_load_avg(void)
 /* Returns 100 times the current thread's recent_cpu value. */
 int thread_get_recent_cpu(void)
 {
-  return convert_to_int_round(thread_current()->recent_cpu.value * 100);
+  //return convert_to_int_round(thread_current()->recent_cpu.value * 100);
+  return convert_to_int_round(multiply_fp(thread_current()->recent_cpu.value, convert_to_fp(100)));
 }
 
 
@@ -556,18 +586,23 @@ init_thread (struct thread *t, const char *name, int priority)
   // t->priority = priority;
   t->magic = THREAD_MAGIC;
 /************************/
-  t->priority = priority;
-  t->original_priority = priority;
-  list_init(&t->acquired_locks);
-  // t->is_donated = false;
-/****************************/
-  old_level = intr_disable ();
-  // list_push_back (&all_list, &t->allelem);
-/*********************************************/
-  list_insert_ordered (&all_list, &t->allelem, priority_order_func, NULL);
-  /**********************************/
-  intr_set_level (old_level);
-
+//////////////////////////
+  
+  
+//////////////////////////
+    t->priority = priority;
+    t->original_priority = priority;
+    list_init(&t->acquired_locks);
+    // t->is_donated = false;
+  /****************************/
+    old_level = intr_disable ();
+    // list_push_back (&all_list, &t->allelem);
+  /*********************************************/
+    list_insert_ordered (&all_list, &t->allelem, priority_order_func, NULL);
+    /**********************************/
+    intr_set_level (old_level);
+  
+  //else{Possible add the advanced scheduler}
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
