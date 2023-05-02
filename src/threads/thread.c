@@ -170,12 +170,14 @@ thread_tick (void)
   
   if(thread_mlfqs){
     increment_recent_cpu(t);
-    update_recent_cpu(t,NULL);
+    
   if((kernel_ticks+idle_ticks)%4 == 0) {
     update_priority(t,NULL);
   }
   if ((kernel_ticks+idle_ticks)%100 == 0){
+    update_load_avg();
     update_all_threads_recent_cpu_and_priority();
+    update_recent_cpu(t,NULL);
   }
   }
   /* Enforce preemption. */
@@ -724,6 +726,7 @@ void increment_recent_cpu(struct thread *t)
 
 void update_recent_cpu(struct thread *t, void *aux)
 {
+  if(t != idle_thread){
   t->recent_cpu.value = multiply_fp(
                                      divide_fp(  
                                                 multiply_fp(convert_to_fp(2), load_avg.value)
@@ -732,22 +735,27 @@ void update_recent_cpu(struct thread *t, void *aux)
                                     , t->recent_cpu.value
                                     ) 
                         + convert_to_fp(t->nice);
+  }
   //printf("real recent cpu value = %d\n", convert_to_int_round(t->recent_cpu.value));
 }
 
 void update_recent_cpu_and_priority(struct thread *t, void *aux)
 {
+  if(t != idle_thread){
   update_recent_cpu(t, aux);
   t->priority = PRI_MAX - convert_to_int_round(divide_fp(t->recent_cpu.value, convert_to_fp(4))) - (t->nice * 2);
+  }
 }
 
 void update_priority(struct thread *t, void *aux)
 {
+  if(t != idle_thread){
   t->priority = PRI_MAX - convert_to_int_round(divide_fp(t->recent_cpu.value, convert_to_fp(4))) - (t->nice * 2);
   if (t->priority > PRI_MAX)
     t->priority = PRI_MAX;
   else if (t->priority < PRI_MIN)
     t->priority = PRI_MIN;
+  }
 }
 
 void update_load_avg()
@@ -779,7 +787,6 @@ void update_all_threads_recent_cpu_and_priority(void)
     update_recent_cpu_and_priority(iterat, NULL);
     iterat = list_next(iterat);
   }
-  update_load_avg();
 }
 
 void update_all_threads_priority(void)
