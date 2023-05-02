@@ -170,13 +170,16 @@ thread_tick (void)
   
   if(thread_mlfqs){
     increment_recent_cpu(t);
-    update_recent_cpu(t,NULL);
-  if((kernel_ticks+idle_ticks)%4 == 0) {
-    update_priority(t,NULL);
-  }
-  if ((kernel_ticks+idle_ticks)%100 == 0){
-    update_all_threads_recent_cpu_and_priority();
-  }
+
+    if ((kernel_ticks+idle_ticks)%100 == 0){
+      // update_all_threads_recent_cpu_and_priority();
+      update_load_avg();
+      // update_recent_cpu(t,NULL);
+      update_all_threads_recent_cpu();
+    }
+      if((kernel_ticks+idle_ticks)%4 == 0) {
+      update_priority(t,NULL);
+    }
   }
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
@@ -724,6 +727,7 @@ void increment_recent_cpu(struct thread *t)
 
 void update_recent_cpu(struct thread *t, void *aux)
 {
+  enum intr_level old_level = intr_disable();
   t->recent_cpu.value = multiply_fp(
                                      divide_fp(  
                                                 multiply_fp(convert_to_fp(2), load_avg.value)
@@ -733,6 +737,17 @@ void update_recent_cpu(struct thread *t, void *aux)
                                     ) 
                         + convert_to_fp(t->nice);
   //printf("real recent cpu value = %d\n", convert_to_int_round(t->recent_cpu.value));
+  intr_set_level(old_level);
+}
+
+void update_all_threads_recent_cpu(void)
+{
+  struct list_elem *iterat = list_begin(&all_list);
+  while (iterat != list_end(&all_list))
+  {
+    update_recent_cpu(iterat, NULL);
+    iterat = list_next(iterat);
+  }
 }
 
 void update_recent_cpu_and_priority(struct thread *t, void *aux)
