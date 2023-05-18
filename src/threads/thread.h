@@ -4,6 +4,8 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <kernel/list.h>
+#include <threads/synch.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -23,6 +25,13 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+  
+struct child {
+   int tid;
+   struct list_elem elem;
+   int exit_error;
+   bool used;
+   };
 
 /* A kernel thread or user process.
 
@@ -93,6 +102,21 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    bool success;
+    
+    int exit_error;
+
+    struct list child_proc;
+    struct thread* parent;
+
+    struct file *self;
+
+    struct list files;
+    int fd_count;
+
+    struct semaphore child_lock;
+    int waitingon;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -137,5 +161,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+bool cmp_waketick(struct list_elem *first, struct list_elem *second, void *aux);
 
 #endif /* threads/thread.h */
