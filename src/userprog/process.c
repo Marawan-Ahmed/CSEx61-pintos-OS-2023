@@ -68,9 +68,15 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
+  if (!success) {
+    thread_current()->parent->success = false;
+    sema_up(&thread_current()->parent->child_lock);
     thread_exit ();
-
+  }
+  else{
+    thread_current()->parent->success = true;
+    sema_up(&thread_current()->parent->child_lock);  
+  }
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
