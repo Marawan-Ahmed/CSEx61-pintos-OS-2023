@@ -472,37 +472,40 @@ setup_stack (void **esp, char * file_name)
   free(copy);
 
   /*push all arguments to stack*/
-  int *argv = calloc(argc,sizeof(int));
+  // int *argv = calloc(argc,sizeof(int));
+  void* argv_addr[argc];
 
   for (token = strtok_r (file_name, " ", &save_ptr),i=0; token != NULL;token = strtok_r (NULL, " ", &save_ptr),i++)
     {
       *esp -= strlen(token) + 1;
       memcpy(*esp,token,strlen(token) + 1);
 
-      argv[i]=*esp;
+      // argv[i]=*esp;
+      argv_addr[i] = *esp;
     }
   /*zero pad to align to 4 bytes*/
   while((int)*esp%4!=0)
     {
       *esp-=sizeof(char);
-      char x = 0;
+      memset(*esp, 0, sizeof(char));
     }
 
   /*write last argument consisting  of 4 bytes of 0's*/
-  int zero = 0;
   *esp-=sizeof(int);
-  memcpy(*esp,&zero,sizeof(int));
+  memset(*esp, 0,sizeof(int));
+
   /*write the  addresses pointing to each of the arguments*/
   for(i=argc-1;i>=0;i--)
   {
     *esp-=sizeof(int);
-    memcpy(*esp,&argv[i],sizeof(int));
+    // memcpy(*esp,&argv[i],sizeof(int));
+    memcpy(*esp,argv_addr[i],sizeof(int));
   }
 
   /*write the  address pointing to argv[0]*/
-  int pt = *esp;
+  // int pt = *esp;
   *esp-=sizeof(int);
-  memcpy(*esp,&pt,sizeof(int));
+  memcpy(*esp, (*esp + sizeof(int)),sizeof(int)); //nrrd to chrck later
 
 /*write the number of arguments*/
   *esp-=sizeof(int);
@@ -510,9 +513,9 @@ setup_stack (void **esp, char * file_name)
 
 /*write null pointer*/
   *esp-=sizeof(int);
-  memcpy(*esp,&zero,sizeof(int));
+  memset(*esp, 0,sizeof(int));
 
-  free(argv);
+  // free(argv);
 
   return success;
 }

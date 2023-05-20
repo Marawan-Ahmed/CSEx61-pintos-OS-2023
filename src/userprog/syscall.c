@@ -74,9 +74,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   int * p = f->esp;
 
-  int system_call = * p;
+  int sys_code = *(int*)f->esp;
 
-	switch (system_call)
+	switch (sys_code)
 	{
 		case SYS_HALT:
 	  	shutdown_power_off();
@@ -157,23 +157,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 		break;
 
 		case SYS_WRITE:
-      // if(*(p+5)==1)
-      // {
-      //   putbuf(*(p+6),*(p+7));
-      //   f->eax = *(p+7);
-      // }
-      // else
-      // {
-      //   struct proc_file* fptr = list_search(&thread_current()->files, *(p+5));
-      //   if(fptr==NULL)
-      //     f->eax=-1;
-      //   else
-      //   {
-      //     acquire_filesys_lock();
-      //     f->eax = file_write (fptr->ptr, *(p+6), *(p+7));
-      //     release_filesys_lock();
-      //   }
-      // }
+      int fd = *((int*)f->esp + 1);
+      void* buffer = (void*)(*((int*)f->esp + 2));
+      unsigned size = *((unsigned*)f->esp + 3);
+      //run the syscall, a function of your own making
+      //since this syscall returns a value, the return value should be stored in f->eax
+      f->eax = write(fd, buffer, size);
 		break;
 
 		case SYS_SEEK:
