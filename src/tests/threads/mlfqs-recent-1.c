@@ -120,8 +120,6 @@ test_mlfqs_recent_1 (void)
       start_time = timer_ticks ();
       timer_sleep (DIV_ROUND_UP (start_time, TIMER_FREQ) - start_time
                    + 10 * TIMER_FREQ);
-      //int recent_cpu = thread_get_recent_cpu ();
-      //printf("recent_cpu is %d.%02d\n", recent_cpu / 100, recent_cpu % 100);
     }
   while (thread_get_recent_cpu () > 700);
 
